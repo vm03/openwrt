@@ -1,6 +1,7 @@
 do_sysinfo_octeon() {
 	local machine
 	local name
+	local machine_bootarg
 
 	machine=$(grep "^system type" /proc/cpuinfo | sed "s/system type.*: \(.*\)/\1/g")
 
@@ -19,6 +20,15 @@ do_sysinfo_octeon() {
 
 	*)
 		name="generic"
+		;;
+	esac
+
+	machine_bootarg=$(sed "s/.*\(^\| \)board=\([^ ]*\).*/\2/g" /proc/cmdline)
+
+	case "$machine_bootarg" in
+	"DAP-2590-A1")
+		name="wapnd02"
+		machine="DAP-2590-A1"
 		;;
 	esac
 

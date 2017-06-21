@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Copyright (C) 2010 OpenWrt.org
+#
+
+model=$(cat /tmp/sysinfo/model)
+
+fixwrgg() {
+	local fw_part=$(grep '"firmware"' /proc/mtd | sed 's/^mtd\([0-9]*\):[ \t].*/\/dev\/mtdblock\1/')
+        local sq_offset=$(hexdump -v -e '1/0 "%_ax" 1/4 " %04x" 1/65532 "\n"' "$fw_part" | grep '0000 68737173')
+        sq_offset="0x${sq_offset%% 68737173}"
+	mtd -c $sq_offset fixwrgg firmware 2>&1 | /usr/bin/logger
+}
+
+case "$model" in
+DAP-2590-A1)
+	fixwrgg
+	;;
+esac
