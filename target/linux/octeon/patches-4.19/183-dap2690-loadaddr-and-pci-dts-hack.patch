@@ -1,0 +1,92 @@
+diff --git a/arch/mips/boot/dts/cavium-octeon/Makefile b/arch/mips/boot/dts/cavium-octeon/Makefile
+index 17aef35f311b..a176fe310672 100644
+--- a/arch/mips/boot/dts/cavium-octeon/Makefile
++++ b/arch/mips/boot/dts/cavium-octeon/Makefile
+@@ -1,4 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0
+ dtb-$(CONFIG_CAVIUM_OCTEON_SOC)	+= octeon_3xxx.dtb octeon_68xx.dtb
++dtb-$(CONFIG_CAVIUM_OCTEON_DAP)	+= dlink_dap_2690.dtb
+ 
+ obj-$(CONFIG_BUILTIN_DTB)	+= $(addsuffix .o, $(dtb-y))
+diff --git a/arch/mips/cavium-octeon/Kconfig b/arch/mips/cavium-octeon/Kconfig
+index 4984e462be30..621ff2f4a8e6 100644
+--- a/arch/mips/cavium-octeon/Kconfig
++++ b/arch/mips/cavium-octeon/Kconfig
+@@ -26,6 +26,16 @@ endif # CPU_CAVIUM_OCTEON
+ 
+ if CAVIUM_OCTEON_SOC
+ 
++config CAVIUM_OCTEON_DAP
++	bool "Buid a kernel for D-LINK DAP bootloaders"
++	default "n"
++	depends on !CAVIUM_OCTEON_2ND_KERNEL
++	help
++	  This option configures this kernel to be linked at the normal
++	  octeon load address despite being run on a SOC.  This is what D-LINK
++	  DAP device bootloaders do with single lzma ELF images.  The option
++	  also loads a DAP-specific device tree internally.
++
+ config CAVIUM_OCTEON_LOCK_L2
+ 	bool "Lock often used kernel code in the L2"
+ 	default "y"
+diff --git a/arch/mips/cavium-octeon/Platform b/arch/mips/cavium-octeon/Platform
+index 45be853700e6..2dc6262946ef 100644
+--- a/arch/mips/cavium-octeon/Platform
++++ b/arch/mips/cavium-octeon/Platform
+@@ -5,3 +5,5 @@ platform-$(CONFIG_CAVIUM_OCTEON_SOC)	+= cavium-octeon/
+ cflags-$(CONFIG_CAVIUM_OCTEON_SOC)	+=				\
+ 		-I$(srctree)/arch/mips/include/asm/mach-cavium-octeon
+ load-$(CONFIG_CAVIUM_OCTEON_SOC)	+= 0xffffffff81100000
++
++load-$(CONFIG_CAVIUM_OCTEON_DAP)        = 0xffffffff80100000
+diff --git a/arch/mips/cavium-octeon/setup.c b/arch/mips/cavium-octeon/setup.c
+index c2426232db06..0658e8621cfd 100644
+--- a/arch/mips/cavium-octeon/setup.c
++++ b/arch/mips/cavium-octeon/setup.c
+@@ -1181,7 +1181,11 @@ void __init device_tree_init(void)
+ 		do_prune = true;
+ 		fill_mac = true;
+ 	} else {
++#ifdef CONFIG_CAVIUM_OCTEON_DAP
++		fdt = &__dtb_dlink_dap_2690_begin;
++#else
+ 		fdt = &__dtb_octeon_3xxx_begin;
++#endif
+ 		do_prune = true;
+ 		fill_mac = true;
+ 	}
+diff --git a/arch/mips/configs/cavium_octeon_defconfig b/arch/mips/configs/cavium_octeon_defconfig
+index 490b12af103c..dbaa752d940c 100644
+--- a/arch/mips/configs/cavium_octeon_defconfig
++++ b/arch/mips/configs/cavium_octeon_defconfig
+@@ -1,4 +1,5 @@
+ CONFIG_CAVIUM_OCTEON_SOC=y
++# CONFIG_CAVIUM_OCTEON_DAP is not set
+ CONFIG_CAVIUM_CN63XXP1=y
+ CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE=2
+ CONFIG_TRANSPARENT_HUGEPAGE=y
+diff --git a/arch/mips/include/asm/octeon/octeon.h b/arch/mips/include/asm/octeon/octeon.h
+index 60481502826a..e4c047b83db0 100644
+--- a/arch/mips/include/asm/octeon/octeon.h
++++ b/arch/mips/include/asm/octeon/octeon.h
+@@ -285,6 +285,7 @@ int octeon_prune_device_tree(void);
+ extern const char __appended_dtb;
+ extern const char __dtb_octeon_3xxx_begin;
+ extern const char __dtb_octeon_68xx_begin;
++extern const char __dtb_dlink_dap_2690_begin;
+ 
+ /**
+  * Write a 32bit value to the Octeon NPI register space
+diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
+index a2feb4748fe3..4259c63161c3 100644
+--- a/arch/mips/pci/pci-octeon.c
++++ b/arch/mips/pci/pci-octeon.c
+@@ -199,6 +199,8 @@ const char *octeon_get_pci_interrupts(void)
+ 	 * Interrupt Number (INTA# = 0, INTB# = 1, INTC# = 2, and
+ 	 * INTD# = 3)
+ 	 */
++	if (of_machine_is_compatible("dlink,dap-2690"))
++		return "AAAAADABAAAAAAAAAAAAAAAAAAAAAAAA";
+ 	if (of_machine_is_compatible("dlink,dsr-500n"))
+ 		return "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+ 	switch (octeon_bootinfo->board_type) {
