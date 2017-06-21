@@ -12,15 +12,15 @@ BOARDNAME:=Cavium Networks Octeon
 FEATURES:=squashfs ramdisk pci usb
 CPU_TYPE:=octeonplus
 MAINTAINER:=John Crispin <john@phrozen.org>
+SUBTARGETS:=ubiquiti dap
 
 KERNEL_PATCHVER:=4.19
 
 define Target/Description
 	Build firmware images for Cavium Networks Octeon-based boards.
+	(Ubiquiti ER/ERLITE, certain D-LINK models)
 endef
 
 include $(INCLUDE_DIR)/target.mk
-
-DEFAULT_PACKAGES += mkf2fs e2fsprogs
 
 $(eval $(call BuildTarget))

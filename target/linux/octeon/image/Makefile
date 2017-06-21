@@ -7,6 +7,8 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
+# Ubiquiti.  Uses a removable flash drive.
+
 define Device/Default
   PROFILES = Default $$(DEVICE_NAME)
   KERNEL_NAME := vmlinux.elf
@@ -27,7 +29,9 @@ define Device/generic
   DEVICE_MODEL := Octeon
   FILESYSTEMS := ext4
 endef
+ifeq ($(SUBTARGET),ubiquiti)
 TARGET_DEVICES += generic
+endif
 
 ER_CMDLINE:=-mtdparts=phys_mapped_flash:640k(boot0)ro,640k(boot1)ro,64k(eeprom)ro root=/dev/mmcblk0p2 rootfstype=squashfs,ext4 rootwait
 define Device/er
@@ -35,7 +39,9 @@ define Device/er
   DEVICE_MODEL := EdgeRouter
   CMDLINE := $(ER_CMDLINE) 
 endef
-TARGET_DEVICES += er
+ifeq ($(SUBTARGET),ubiquiti)
+  TARGET_DEVICES += er
+endif
 
 ERLITE_CMDLINE:=-mtdparts=phys_mapped_flash:512k(boot0)ro,512k(boot1)ro,64k(eeprom)ro root=/dev/sda2 rootfstype=squashfs,ext4 rootwait
 define Device/erlite
@@ -43,6 +49,55 @@ define Device/erlite
   DEVICE_MODEL := EdgeRouter Lite
   CMDLINE := $(ERLITE_CMDLINE) 
 endef
-TARGET_DEVICES += erlite
+ifeq ($(SUBTARGET),ubiquiti)
+  TARGET_DEVICES += erlite
+endif
+
+# D-LINK DAP.  Uses a WRGG-style factory image.
+
+define Build/mkwrggimg
+        $(STAGING_DIR_HOST)/bin/mkwrggimg -b -f 1 \
+                -i $@ -o $@.imghdr -d /dev/mtdblock/1 \
+                -m $(BOARDNAME) -s $(DAP_SIGNATURE) \
+                -v LEDE -B $(REVISION)
+        mv $@.imghdr $@
+endef
+
+define Build/wrgg-pad-rootfs
+  # DAP-2690 can have an eraseblock size of either 64k or 128k depending
+  # on the production run.  Those shipped with v1.20 firmware use 128k.
+  $(STAGING_DIR_HOST)/bin/padjffs2 $(IMAGE_ROOTFS) -c 64 128 >>$@
+endef
+
+define Device/dap-2690-a1
+  DEVICE_TITLE := D-Link DAP-2690 rev. A1
+  DEVICE_PACKAGES := kmod-ath9k
+  BOARDNAME = DAP-2690-A1
+  # No need for a sysupgrade.bin, we taught sysupgrade to work with factory images
+  IMAGES := factory.img
+  IMAGE_SIZE = 15616k
+
+  # TODO: Figure out a tighter upper bound on the lzma to not waste space
+  # after the kernel.  Will have to produce the lzma, pad for possible compression
+  # differences as the cmdline needs to be altered to tighten rootfs partition,
+  # then build the real image with the new cmdline.
+
+  # langpack and perhaps misc might be safe to alter
+  # ...the latter because it is a subpartition of the OEM "upgrade" partition
+  MTDPARTS = phys_mapped_flash:12568k@3688k(rootfs),15616k@640k(firmware),128k@384k(rgdb)ro,128k@256k(bdcfg)ro,128k@512k(langpack),128k@16256k(misc)ro,16384k@0k(flash)ro,256k@0k(bootloader)ro,128k@256k(bootconfig)ro
+
+  CONSOLE = ttyS0,115200
+  CMDLINE := board=$$(BOARDNAME) mtdparts=$$(MTDPARTS) console=$$(CONSOLE) netconsole=4444@192.168.1.50/,4444@192.168.1.250/ root=/dev/mtdblock0 debug
+  DAP_SIGNATURE := wapnd06_dkbs_dap2690
+  DEVICE_VARS += DAP_SIGNATURE CMDLINE
+  KERNEL := kernel-bin | strip-kernel | patch-cmdline | lzma
+  KERNEL_INITRAMFS := $$(KERNEL) | mkwrggimg
+
+  IMAGE/factory.img = append-kernel | pad-offset 3121152 160 | check-size 3121152 | append-rootfs | wrgg-pad-rootfs | mkwrggimg | check-size $$$$(IMAGE_SIZE)
+
+endef
+ifeq ($(SUBTARGET),dap)
+  TARGET_DEVICES += dap-2690-a1
+endif
 
 $(eval $(call BuildImage))
