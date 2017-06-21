@@ -59,6 +59,7 @@ static char *signature;
 static char *version;
 static char *model;
 static uint32_t flag = 0;
+static uint32_t flag2 = 0;
 static uint32_t reserve = 0;
 static char *buildno;
 static uint32_t offset;
@@ -77,8 +78,10 @@ void usage(int status)
 "  -B <buildno>    build number\n"
 "  -i <file>       read input from the file <file>\n"
 "  -d <name>       set device name to <name>\n"
+"  -f <flags1>     set image flags #1 to <flags1> (uint32)\n"
 "  -m <model>      model name\n"
 "  -o <file>       write output to the file <file>\n"
+"  -F <flags2>     set image flags #2 to <flags2> (uint32)\n"
 "  -O <offset>     set offset to <offset>\n"
 "  -s <sig>        set image signature to <sig>\n"
 "  -h              show this screen\n"
@@ -133,7 +136,7 @@ int main(int argc, char *argv[])
 	while ( 1 ) {
 		int c;
 
-		c = getopt(argc, argv, "bd:i:m:o:s:v:B:O:h");
+		c = getopt(argc, argv, "bd:f:i:m:o:s:v:B:F:O:h");
 		if (c == -1)
 			break;
 
@@ -146,6 +149,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			devname = optarg;
+			break;
+		case 'f':
+			flag = strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			ifname = optarg;
@@ -161,6 +167,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			version = optarg;
+			break;
+		case 'F':
+			flag2 = strtoul(optarg, NULL, 0);
 			break;
 		case 'O':
 			offset = strtoul(optarg, NULL, 0);
@@ -245,6 +254,7 @@ int main(int argc, char *argv[])
 	strncpy(header->version, version, sizeof(header->version));
 	strncpy(header->model, model, sizeof(header->model));
 	put_u32(&header->flag, flag, 0);
+	put_u32(&header->flag[1], flag2, 0);
 	put_u32(&header->reserve, reserve, 0);
 	strncpy(header->buildno, buildno, sizeof(header->buildno));
 	put_u32(&header->size, st.st_size, big_endian);
