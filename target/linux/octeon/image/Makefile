@@ -61,7 +61,9 @@ define Build/mkwrggimg
 endef
 
 define Build/wrgg-pad-rootfs
-  $(STAGING_DIR_HOST)/bin/padjffs2 $(IMAGE_ROOTFS) -c 64 >>$@
+  # DAP-2590 can have an eraseblock size of either 64k or 128k depending
+  # on the production run.  Those shipped with v1.20 firmware use 128k.
+  $(STAGING_DIR_HOST)/bin/padjffs2 $(IMAGE_ROOTFS) -c 64 128 >>$@
 endef
 
 define Device/dap-2590-a2
